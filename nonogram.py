@@ -1,15 +1,10 @@
+import sys
 import copy
 import itertools
-import sys
-import threading
-import time
 import cProfile
-
-from random import choice
-import sys
 from csp import CSP
 
-def print_solution(result):
+def print_nonogram(result):
     if result == False:
         print 'No solution'
         return
@@ -49,22 +44,11 @@ def create_domain(length, specifications):
         domain.append(result)
     return domain
 
-
-def filter_function(var1, var2, value_pair):
-    var1 = int(var1[1:])
-    var2 = int(var2[1:])
-    row, col = value_pair
-    return row[var2] == col[var1]
-
-def is_valid_row_col_combination(row, col, row_number, col_number):
-    return row[col_number] == col[row_number]
-
-def one_inference_loop(csp):
-    assignment = copy.deepcopy(csp.domains)
-    csp.print_domain_size(assignment)
-    csp.inference(assignment, csp.get_all_arcs(), filter_function)
-    print '----------------------------------------------'
-    csp.print_domain_size(assignment)
+def compatible_value_pair(i, j, value_pair):
+    x, y = value_pair
+    x_index = int(i[1:])
+    y_index = int(j[1:])
+    return x[y_index] == y[x_index]
 
 def create_nonogram_csp(filename):
     f = open(filename,'r')
@@ -79,9 +63,6 @@ def create_nonogram_csp(filename):
 
     csp = CSP()
 
-    csp.filter_functions.append(filter_function)
-    print csp.filter_functions[0]('R0', 'C0',)
-    
     for i in range(len(row_spec)):
         segment_specification = map(int, list(row_spec[i].split()))
         domain = create_domain(number_of_cols, segment_specification)
@@ -96,13 +77,14 @@ def create_nonogram_csp(filename):
     col_variables = filter(lambda x: 'C' in x, csp.variables)
 
     for (row, col) in itertools.product(row_variables, col_variables):
-        csp.add_all_different_constraint([row, col])
+        csp.add_constraint_one_way(row, col, compatible_value_pair)
+        csp.add_constraint_one_way(col, row, compatible_value_pair)
     return csp
 
 
 puzzle = str(sys.argv[1])
 csp = create_nonogram_csp(puzzle)
-solution = csp.backtracking_search(filter_function)
-print_solution(solution)
+solution = csp.get_solution()
+print_nonogram(solution)
 #print 'Backtracks', csp.b_counter
-#cProfile.run('csp.backtracking_search(filter_function)')
+cProfile.run('csp.get_solution()')
