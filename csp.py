@@ -9,9 +9,6 @@ class CSP:
         self.domains = {}
         self.constraints = {} # list of filter functions for each arc
 
-        self.b_counter = 0
-        self.f_counter = 0
-
     def add_variable(self, name, domain):
         self.variables.append(name)
         self.domains[name] = list(domain)
@@ -39,16 +36,64 @@ class CSP:
                     min_variable = key
         return min_variable
 
+    def is_solution(self, assignment):
+        for variable in self.variables:
+            if len(assignment[variable]) != 1:
+                return False
+        return True
+
+    def is_solvable(self, assignment):
+        for variable in self.variables:
+            if len(assignment[variable]) == 0:
+                return False
+        return True
+
     def get_solution(self):
         assignment = copy.deepcopy(self.domains)
         # Run domain_filtering on all constraints in the CSP, to weed out all of the
         # values that are not arc-consistent to begin with
         self.domain_filtering(assignment, self.get_all_arcs())
-        # Call backtrack with the partial assignment 'assignment'
-        return self.backtrack(assignment)
+        if self.is_solution(assignment):
+            return assignment
 
-    def backtrack(self, assignment):
-        self.b_counter += 1 # increment backtrack counter
+        # Different search approaches to find a
+        return self.greedy_best_first(assignment)
+        #return self.bfs(assignment)
+        #return self.dfs(assignment)
+
+    def dfs(self, root):
+        closed_set, queue = [], [root]
+        while queue:
+            current = queue.pop()
+            self.domain_filtering(current, self.get_all_arcs())
+            if self.is_solution(current):
+                return current
+            if self.is_solvable(current):
+                for variable in self.variables:
+                    for value in current[variable]:
+                        new_assignment = copy.deepcopy(current)
+                        new_assignment[variable] = [value]
+                        if new_assignment not in closed_set:
+                            closed_set.append(new_assignment)
+                            queue.append(new_assignment)
+
+    def bfs(self, root):
+        closed_set, queue = [], [root]
+        while queue:
+            current = queue.pop(0)
+            self.domain_filtering(current, self.get_all_arcs())
+            if self.is_solution(current):
+                return current
+            if self.is_solvable(current):
+                for variable in self.variables:
+                    for value in current[variable]:
+                        new_assignment = copy.deepcopy(current)
+                        new_assignment[variable] = [value]
+                        if new_assignment not in closed_set:
+                            closed_set.append(new_assignment)
+                            queue.append(new_assignment)
+
+    def greedy_best_first(self, assignment):
         var = self.select_minimum_remaining_variable(assignment) # select variable not assigned any value yet
         if not var: # all variables have been assigned a single value
             return assignment
@@ -56,10 +101,9 @@ class CSP:
             new_assignment = copy.deepcopy(assignment) # copy assignment such that backtracking works
             new_assignment[var] = [value] # assign value to variable
             if self.domain_filtering(new_assignment, self.get_all_neighboring_arcs(var)): # checks arc consistency for var
-                result = self.backtrack(new_assignment) # call backtrack recursively with new_assignment
+                result = self.greedy_best_first(new_assignment) # call brecursively with new_assignment
                 if result:
                     return result # if we have a result return it
-        self.f_counter += 1 # increment backtrack_failure counter
         return False # no values can be assigned to var.
 
 
